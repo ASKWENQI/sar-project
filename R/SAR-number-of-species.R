@@ -1,9 +1,9 @@
 rm(list=ls())
 gc()
-
+library(sars)
 # loading and filtering
 library(phyloseq)
-neon_dob <- readRDS("phylo_V3.1.RDS")
+neon_dob <- readRDS("../data/phylo_V3.1.RDS")
 neon_dob <- subset_samples(neon_dob, !is.na(lon) & !is.na(lat))
 neon_dob <- subset_taxa(neon_dob, taxa_sums(neon_dob) > 0)
 neon_dob <- subset_samples(neon_dob, sample_sums(neon_dob) > 0)
@@ -15,11 +15,14 @@ neon <- subset_samples(neon, !is.na(horizon))
 d <- sample_data(neon) # sample data data frame
 
 a <- unique(d$Site) # get all the sites
-# create matrix to save result
-result.c <- matrix(nrow = 45, ncol = 4)
-result.z <- matrix(nrow = 45, ncol = 4)
-rownames(result.c) <- a
-rownames(result.z) <- a
+# create matrix to save power
+power.c <- matrix(nrow = 45, ncol = 4)
+power.z <- matrix(nrow = 45, ncol = 4)
+rownames(power.c) <- a
+rownames(power.z) <- a
+models <- vector(length = 20)
+loga.c <- matrix(nrow = 45, ncol = 4)
+loga.z <- matrix(nrow = 45, ncol = 4)
 # computing the relationship between number of species and number of samples
 for (i in 1:length(a)){
   # take out one site
@@ -37,18 +40,26 @@ for (i in 1:length(a)){
     # compute number of species
     species[j] <- sum(otu_table(temp)["TRUE"] > 0)
   }
-  ex <- as.data.frame(cbind(species, "A"=c(1:dim1[1])))
+  ex <- as.data.frame(cbind("A"=c(1:dim1[1]),species))
   temp <- summary(nls(species~c*A^z,ex,start = list(c=1,z=1)))[["coefficients"]]
-  result.c[i,] <- temp[1,]
-  result.z[i,] <- temp[2,]
+  power.c[i,] <- temp[1,]
+  power.z[i,] <- temp[2,]
+  # temp <- summary(nls(species ~ c + z * log(A),ex,start = list(c=1,z=1)))[["coefficients"]]
+  # loga.c[i,] <- temp[1,]
+  # loga.z[i,] <- temp[2,]
+  # temp <- sar_multi(ex)
+  # for (k in 1:20){
+  #   aic <- temp[[k]][["AIC"]]
+  # }
+  # models[i] <- names(temp)[which.min(aic)]
 }
-colnames(result.z) <- colnames(summary(nls(species~c*A^z,ex,start = list(c=1,z=1)))[["coefficients"]])
-colnames(result.c) <- colnames(summary(nls(species~c*A^z,ex,start = list(c=1,z=1)))[["coefficients"]])
+colnames(power.z) <- colnames(summary(nls(species~c*A^z,ex,start = list(c=1,z=1)))[["coefficients"]])
+colnames(power.c) <- colnames(summary(nls(species~c*A^z,ex,start = list(c=1,z=1)))[["coefficients"]])
 
-result.z
-result.c
-write.table(result.z,"neon.z.txt")
-write.table(result.c,"neon.c.txt")
+power.z
+power.c
+write.table(power.z,"neon.z.txt")
+write.table(power.c,"neon.c.txt")
 # merge samples and linear regression
 # neon_site <- merge_samples(neon, "Site")
 #d_site <- sample_data(neon_site)
@@ -67,38 +78,38 @@ colnames(d_site) <- c("soilInCaClpH","nitrogenPercent","organicCPercent",
 # standardization seems to have no effect on significance
 d_site <- d_site[a,]
 d_site <- as.data.frame(scale(d_site))
-summary(lm(result.z[,1] ~ d_site$soilInCaClpH + d_site$soilMoisture + d_site$mat_celsius +
+summary(lm(power.z[,1] ~ d_site$soilInCaClpH + d_site$soilMoisture + d_site$mat_celsius +
      d_site$map_mm + d_site$temp_seasonality))
 
 # data with no missing values
-summary(lm(scale(result.z[,1]) ~ d_site$mat_celsius +
+summary(lm(scale(power.z[,1]) ~ d_site$mat_celsius +
              d_site$map_mm + d_site$temp_seasonality + d_site$prec_seasonality))
 
 library(ggplot2)
 library(ggtrendline)
 library(gridExtra)
-p1 <- ggtrendline(d_site$soilInCaClpH, result.z[,1],linecolor="red")+
-  geom_point(aes(d_site$soilInCaClpH, result.z[,1]),color="black",pch=21,fill='white')+
+p1 <- ggtrendline(d_site$soilInCaClpH, power.z[,1],linecolor="red")+
+  geom_point(aes(d_site$soilInCaClpH, power.z[,1]),color="black",pch=21,fill='white')+
   xlab("soilInCaClpH")+ylab("z")
 
-p2 <- ggtrendline(d_site$soilMoisture, result.z[,1],linecolor="red")+
-  geom_point(aes(d_site$soilMoisture, result.z[,1]),color="black",pch=21,fill='white')+
+p2 <- ggtrendline(d_site$soilMoisture, power.z[,1],linecolor="red")+
+  geom_point(aes(d_site$soilMoisture, power.z[,1]),color="black",pch=21,fill='white')+
   xlab("soilMoisture")+ylab("z")
 
-p3 <- ggtrendline(d_site$mat_celsius, result.z[,1],linecolor="red")+
-  geom_point(aes(d_site$mat_celsius, result.z[,1]),color="black",pch=21,fill='white')+
+p3 <- ggtrendline(d_site$mat_celsius, power.z[,1],linecolor="red")+
+  geom_point(aes(d_site$mat_celsius, power.z[,1]),color="black",pch=21,fill='white')+
   xlab("mat_celsius")+ylab("z")
 
-p4 <- ggtrendline(d_site$map_mm, result.z[,1],linecolor="red")+
-  geom_point(aes(d_site$map_mm, result.z[,1]),color="black",pch=21,fill='white')+
+p4 <- ggtrendline(d_site$map_mm, power.z[,1],linecolor="red")+
+  geom_point(aes(d_site$map_mm, power.z[,1]),color="black",pch=21,fill='white')+
   xlab("map_mm")+ylab("z")
 
-p5 <- ggtrendline(d_site$temp_seasonality, result.z[,1],linecolor="red")+
-  geom_point(aes(d_site$temp_seasonality, result.z[,1]),color="black",pch=21,fill='white')+
+p5 <- ggtrendline(d_site$temp_seasonality, power.z[,1],linecolor="red")+
+  geom_point(aes(d_site$temp_seasonality, power.z[,1]),color="black",pch=21,fill='white')+
   xlab("temp_seasonality")+ylab("z") 
 
-p6 <- ggtrendline(d_site$prec_seasonality, result.z[,1],linecolor="red")+
-  geom_point(aes(d_site$prec_seasonality, result.z[,1]),color="black",pch=21,fill='white')+
+p6 <- ggtrendline(d_site$prec_seasonality, power.z[,1],linecolor="red")+
+  geom_point(aes(d_site$prec_seasonality, power.z[,1]),color="black",pch=21,fill='white')+
   xlab("prec_seasonality")+ylab("z") 
 
 grid.arrange(p1,p2,p3,p4,p5,p6,ncol = 3)
@@ -110,11 +121,11 @@ rm(neon_dob)
 
 d1 <- sample_data(dob)
 
-a1 <- unique(d1$Site)# be noted that the resulting site orders may not be identical to that of generated by the 'merge_samples' function you used at line 128
-result.c <- matrix(nrow = 68, ncol = 4)
-result.z <- matrix(nrow = 68, ncol = 4)
-rownames(result.c) <- a1
-rownames(result.z) <- a1
+a1 <- unique(d1$Site)# be noted that the powering site orders may not be identical to that of generated by the 'merge_samples' function you used at line 128
+power.c <- matrix(nrow = 68, ncol = 4)
+power.z <- matrix(nrow = 68, ncol = 4)
+rownames(power.c) <- a1
+rownames(power.z) <- a1
 for (i in 1:length(a1)){
   # take out one site
   dob_sub <- subset_samples(dob, Site==a1[i])
@@ -132,17 +143,21 @@ for (i in 1:length(a1)){
   }
   ex <- as.data.frame(cbind(species, "A"=c(1:dim1[1])))
   temp <- summary(nls(species~c*A^z,ex,start = list(c=1,z=1)))[["coefficients"]]
-  result.c[i,] <- temp[1,]
-  result.z[i,] <- temp[2,]
+  power.c[i,] <- temp[1,]
+  power.z[i,] <- temp[2,]
+  temp <- summary(nls(species ~ c + z * log(A),ex,start = list(c=1,z=1)))[["coefficients"]]
+  loga.c[i,] <- temp[1,]
+  loga.z[i,] <- temp[2,]
+  
 }
-colnames(result.z) <- colnames(summary(nls(species~c*A^z,ex,start = list(c=1,z=1)))[["coefficients"]])
-result.z[,4] > 0.05
-hist(result.z[,1])
-summary(result.z[,1])
+colnames(power.z) <- colnames(summary(nls(species~c*A^z,ex,start = list(c=1,z=1)))[["coefficients"]])
+power.z[,4] > 0.05
+hist(power.z[,1])
+summary(power.z[,1])
 
 # merge samples and linear regression
-write.table(result.z,"dob.z.txt")
-write.table(result.c,"dob.c.txt")
+write.table(power.z,"dob.z.txt")
+write.table(power.c,"dob.c.txt")
 # merge samples and linear regression
 # dob_site <- merge_samples(dob, "Site")
 #d_site <- sample_data(dob_site)
@@ -163,38 +178,38 @@ colnames(d_site) <- c("soilInCaClpH","nitrogenPercent","organicCPercent",
                       "temp_seasonality")
 # standardization seems to have no effect on significance
 d_site <- d_site[a1,]
-summary(lm(result.z[,1] ~ d_site$soilInCaClpH + d_site$soilMoisture + d_site$mat_celsius +
+summary(lm(power.z[,1] ~ d_site$soilInCaClpH + d_site$soilMoisture + d_site$mat_celsius +
              d_site$map_mm + d_site$temp_seasonality))
 
 # data with no missing values
-summary(lm(scale(result.z[,1]) ~ d_site$mat_celsius +
+summary(lm(scale(power.z[,1]) ~ d_site$mat_celsius +
              d_site$map_mm + d_site$temp_seasonality + d_site$prec_seasonality))
 
-summary(lm(result.z[,1] ~ d_site$mat_celsius +
+summary(lm(power.z[,1] ~ d_site$mat_celsius +
              d_site$map_mm + d_site$temp_seasonality + d_site$prec_seasonality))
 
-p1 <- ggtrendline(d_site$soilInCaClpH, result.z[,1],linecolor="red")+
-  geom_point(aes(d_site$soilInCaClpH, result.z[,1]),color="black",pch=21,fill='white')+
+p1 <- ggtrendline(d_site$soilInCaClpH, power.z[,1],linecolor="red")+
+  geom_point(aes(d_site$soilInCaClpH, power.z[,1]),color="black",pch=21,fill='white')+
   xlab("soilInCaClpH")+ylab("z")
 
-p2 <- ggtrendline(d_site$soilMoisture, result.z[,1],linecolor="red")+
-  geom_point(aes(d_site$soilMoisture, result.z[,1]),color="black",pch=21,fill='white')+
+p2 <- ggtrendline(d_site$soilMoisture, power.z[,1],linecolor="red")+
+  geom_point(aes(d_site$soilMoisture, power.z[,1]),color="black",pch=21,fill='white')+
   xlab("soilMoisture")+ylab("z")
 
-p3 <- ggtrendline(d_site$mat_celsius, result.z[,1],linecolor="red")+
-  geom_point(aes(d_site$mat_celsius, result.z[,1]),color="black",pch=21,fill='white')+
+p3 <- ggtrendline(d_site$mat_celsius, power.z[,1],linecolor="red")+
+  geom_point(aes(d_site$mat_celsius, power.z[,1]),color="black",pch=21,fill='white')+
   xlab("mat_celsius")+ylab("z")
 
-p4 <- ggtrendline(d_site$map_mm, result.z[,1],linecolor="red")+
-  geom_point(aes(d_site$map_mm, result.z[,1]),color="black",pch=21,fill='white')+
+p4 <- ggtrendline(d_site$map_mm, power.z[,1],linecolor="red")+
+  geom_point(aes(d_site$map_mm, power.z[,1]),color="black",pch=21,fill='white')+
   xlab("map_mm")+ylab("z")
 
-p5 <- ggtrendline(d_site$temp_seasonality, result.z[,1],linecolor="red")+
-  geom_point(aes(d_site$temp_seasonality, result.z[,1]),color="black",pch=21,fill='white')+
+p5 <- ggtrendline(d_site$temp_seasonality, power.z[,1],linecolor="red")+
+  geom_point(aes(d_site$temp_seasonality, power.z[,1]),color="black",pch=21,fill='white')+
   xlab("temp_seasonality")+ylab("z") 
 
-p6 <- ggtrendline(d_site$prec_seasonality, result.z[,1],linecolor="red")+
-  geom_point(aes(d_site$prec_seasonality, result.z[,1]),color="black",pch=21,fill='white')+
+p6 <- ggtrendline(d_site$prec_seasonality, power.z[,1],linecolor="red")+
+  geom_point(aes(d_site$prec_seasonality, power.z[,1]),color="black",pch=21,fill='white')+
   xlab("prec_seasonality")+ylab("z") 
 
 grid.arrange(p1,p2,p3,p4,p5,p6,ncol = 3)
