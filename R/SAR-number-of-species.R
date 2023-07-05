@@ -16,13 +16,14 @@ d <- sample_data(neon) # sample data data frame
 
 a <- unique(d$Site) # get all the sites
 # create matrix to save power
-power.c <- matrix(nrow = 45, ncol = 4)
-power.z <- matrix(nrow = 45, ncol = 4)
-rownames(power.c) <- a
-rownames(power.z) <- a
+power.c <- power.z <- matrix(nrow = length(a), ncol = 4,
+         dimnames = list(a, c("Estimate", "Std. Error", "t value", "Pr(>|t|)" )))
+
 models <- vector(length = 20)
-loga.c <- matrix(nrow = 45, ncol = 4)
-loga.z <- matrix(nrow = 45, ncol = 4)
+
+# species_sum <- vector(length = length(a))
+# loga.c <- matrix(nrow = 45, ncol = 4)
+# loga.z <- matrix(nrow = 45, ncol = 4)
 # computing the relationship between number of species and number of samples
 for (i in 1:length(a)){
   # take out one site
@@ -44,17 +45,19 @@ for (i in 1:length(a)){
   temp <- summary(nls(species~c*A^z,ex,start = list(c=1,z=1)))[["coefficients"]]
   power.c[i,] <- temp[1,]
   power.z[i,] <- temp[2,]
+  
+  #species_sum[i] <- sum(colSums(otu_table(neon_sub)) > 0)
+  #species[length(species)] == species_sum[i]
+  
   # temp <- summary(nls(species ~ c + z * log(A),ex,start = list(c=1,z=1)))[["coefficients"]]
   # loga.c[i,] <- temp[1,]
   # loga.z[i,] <- temp[2,]
-  temp <- sar_multi(ex)
-  for (k in 1:20){
-    aic[k] <- temp[[k]][["AIC"]]
-  }
-  models[i] <- names(temp)[which.min(aic)]
+  # temp <- sar_multi(ex)
+  # for (k in 1:20){
+  #   aic[k] <- temp[[k]][["AIC"]]
+  # }
+  # models[i] <- names(temp)[which.min(aic)]
 }
-colnames(power.z) <- colnames(summary(nls(species~c*A^z,ex,start = list(c=1,z=1)))[["coefficients"]])
-colnames(power.c) <- colnames(summary(nls(species~c*A^z,ex,start = list(c=1,z=1)))[["coefficients"]])
 
 power.z
 power.c

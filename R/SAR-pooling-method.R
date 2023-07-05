@@ -7,7 +7,46 @@ library(ggtrendline)
 library(gridExtra)
 library(permute)
 library(reshape2)
+library(ggplot2)
 set.seed(10001)
+
+# 0.function to compare sequence #
+longest_common_subsequence <- function(seq1, seq2) {
+  m <- length(seq1)
+  n <- length(seq2)
+  
+  # Create a matrix to store the lengths of common subsequences
+  lcs_lengths <- matrix(0, nrow = m + 1, ncol = n + 1)
+  
+  # Iterate through the sequences to find the longest common subsequence
+  for (i in 1:m) {
+    for (j in 1:n) {
+      if (seq1[i] == seq2[j]) {
+        lcs_lengths[i + 1, j + 1] <- lcs_lengths[i, j] + 1
+      } else {
+        lcs_lengths[i + 1, j + 1] <- max(lcs_lengths[i + 1, j], lcs_lengths[i, j + 1])
+      }
+    }
+  }
+  
+  # Backtrack to reconstruct the longest common subsequence
+  lcs <- character(0)
+  i <- m
+  j <- n
+  while (i > 0 && j > 0) {
+    if (seq1[i] == seq2[j]) {
+      lcs <- c(seq1[i], lcs)
+      i <- i - 1
+      j <- j - 1
+    } else if (lcs_lengths[i + 1, j] > lcs_lengths[i, j + 1]) {
+      j <- j - 1
+    } else {
+      i <- i - 1
+    }
+  }
+  
+  return(lcs)
+}
 
 neon_dob <- readRDS("../data/phylo_V3.1.RDS")
 neon_dob <- subset_samples(neon_dob, !is.na(lon) & !is.na(lat))
@@ -17,8 +56,7 @@ neon <- subset_samples(neon_dob, get_variable(neon_dob, "Project")=="NEON")
 neon <- subset_samples(neon, !is.na(horizon))
 rm(neon_dob)
 
-## 1            ##
-## neon dataset ##
+## 1.neon dataset ##
 d <- sample_data(neon) # sample data data frame
 
 a <- unique(d$Site) # get all the sites
@@ -72,15 +110,8 @@ for (i in 1:length(a)){
   temp <- summary(nls(species~c*A^z,ex_random,start = list(c=1,z=1)))[["coefficients"]]
   power.random.c[i,] <- temp[1,]
   power.random.z[i,] <- temp[2,]
-  # temp <- summary(nls(species ~ c + z * log(A),ex,start = list(c=1,z=1)))[["coefficients"]]
-  # loga.c[i,] <- temp[1,]
-  # loga.z[i,] <- temp[2,]
-  # temp <- sar_multi(ex)
-  # for (k in 1:20){
-  #   aic[k] <- temp[[k]][["AIC"]]
-  # }
-  # models[i] <- names(temp)[which.min(aic)]
 }
+
 z_df <- cbind(power.increase.z[,1], power.decrease.z[,1], power.random.z[,1])
 colnames(z_df) <- c("increase","decrease","random")
 z_df_long <- melt(z_df)
@@ -90,57 +121,9 @@ plot(x = z_df_long$Var2, y = z_df_long$value, xlab = "the order of pooling",
 write.table(power.increase.z,"NEONPowerInZ.txt")
 write.table(power.increase.z,"NEONPowerDeZ.txt")
 
-# merge samples and linear regression
-# neon_site <- merge_samples(neon, "Site")
-#d_site <- sample_data(neon_site)
-sample_data_neon$nitrogenPercent[is.nan(sample_data_neon$nitrogenPercent)] = NA
-sample_data_neon$organicCPercent[is.nan(sample_data_neon$organicCPercent)] = NA
-d_site <- aggregate(cbind(sample_data_neon$soilInCaClpH,sample_data_neon$nitrogenPercent,sample_data_neon$organicCPercent,
-                          sample_data_neon$soilMoisture, sample_data_neon$map_mm,sample_data_neon$prec_seasonality,sample_data_neon$mat_celsius,
-                          sample_data_neon$temp_seasonality),list(sample_data_neon$Site), function(x) mean(x,na.rm = T))
-d_site$V2[is.nan(d_site$V2)] = NA
-d_site$V3[is.nan(d_site$V3)] = NA
-row.names(d_site) <- d_site$Group.1
-d_site <- d_site[,-1]
-colnames(d_site) <- c("soilInCaClpH","nitrogenPercent","organicCPercent",
-                      "soilMoisture", "map_mm",'prec_seasonality',"mat_celsius",
-                      "temp_seasonality")
-# standardization seems to have no effect on significance
-d_site <- d_site[a,]
-d_site <- as.data.frame(scale(d_site))
-summary(lm(power.z[,1] ~ d_site$soilInCaClpH + d_site$soilMoisture + d_site$mat_celsius +
-             d_site$map_mm + d_site$temp_seasonality))
-
-# data with no missing values
-summary(lm(scale(power.z[,1]) ~ d_site$mat_celsius +
-             d_site$map_mm + d_site$temp_seasonality + d_site$prec_seasonality))
-
-p1 <- ggtrendline(d_site$soilInCaClpH, power.z[,1],linecolor="red")+
-  geom_point(aes(d_site$soilInCaClpH, power.z[,1]),color="black",pch=21,fill='white')+
-  xlab("soilInCaClpH")+ylab("z")
-
-p2 <- ggtrendline(d_site$soilMoisture, power.z[,1],linecolor="red")+
-  geom_point(aes(d_site$soilMoisture, power.z[,1]),color="black",pch=21,fill='white')+
-  xlab("soilMoisture")+ylab("z")
-
-p3 <- ggtrendline(d_site$mat_celsius, power.z[,1],linecolor="red")+
-  geom_point(aes(d_site$mat_celsius, power.z[,1]),color="black",pch=21,fill='white')+
-  xlab("mat_celsius")+ylab("z")
-
-p4 <- ggtrendline(d_site$map_mm, power.z[,1],linecolor="red")+
-  geom_point(aes(d_site$map_mm, power.z[,1]),color="black",pch=21,fill='white')+
-  xlab("map_mm")+ylab("z")
-
-p5 <- ggtrendline(d_site$temp_seasonality, power.z[,1],linecolor="red")+
-  geom_point(aes(d_site$temp_seasonality, power.z[,1]),color="black",pch=21,fill='white')+
-  xlab("temp_seasonality")+ylab("z") 
-
-p6 <- ggtrendline(d_site$prec_seasonality, power.z[,1],linecolor="red")+
-  geom_point(aes(d_site$prec_seasonality, power.z[,1]),color="black",pch=21,fill='white')+
-  xlab("prec_seasonality")+ylab("z") 
-
-grid.arrange(p1,p2,p3,p4,p5,p6,ncol = 3)
-
+length(longest_common_subsequence(names(sort(power.increase.z[,1])),names(sort(power.decrease.z[,1])))) # 
+length(longest_common_subsequence(names(sort(power.increase.z[,1])),names(sort(power.random.z[,1])))) # 
+length(longest_common_subsequence(names(sort(power.decrease.z[,1])),names(sort(power.random.z[,1])))) # 
 
 ## 2   ##
 ## dob ##
@@ -153,13 +136,13 @@ d1 <- sample_data(dob)
 a1 <- unique(d1$Site)# be noted that the powering site orders may not be identical to that of generated by the 'merge_samples' function you used at line 128
 power.increase.c <- power.increase.z <- power.decrease.c <- power.decrease.z <- 
   power.random.c <- power.random.z <- 
-  matrix(nrow = length(a1), ncol = 4,dimnames = list(a, c("Estimate", "Std. Error", "t value", "Pr(>|t|)" )))
+  matrix(nrow = length(a1), ncol = 4,dimnames = list(a1, c("Estimate", "Std. Error", "t value", "Pr(>|t|)" )))
 
 for (i in 1:length(a1)){
-  cat('\r',paste(paste0(rep("*", round(i/ 1, 0)), collapse = ''), i, "/", length(a), collapse = ''))# informs the processing
-  neon_sub <- subset_samples(neon, Site==a[i])
-  dim1 <- dim(otu_table(neon_sub)) # the number of samples in one site
-  otu_tab <- otu_table(neon_sub)
+  cat('\r',paste(paste0(rep("*", round(i/ 1, 0)), collapse = ''), i, "/", length(a1), collapse = ''))# informs the processing
+  dob_sub <- subset_samples(dob, Site==a1[i])
+  dim1 <- dim(otu_table(dob_sub)) # the number of samples in one site
+  otu_tab <- otu_table(dob_sub)
   species_increase <- sort(apply(otu_tab, 1, function(x) sum(x > 0)))
   species_increase_sum <- species_decrease_sum <- species_random <- vector(length = dim1[1])
   species_increase_sum[1] <- species_increase[1]
@@ -211,67 +194,15 @@ z_df_long <- melt(z_df)
 plot(x = z_df_long$Var2, y = z_df_long$value, xlab = "the order of pooling",
      ylab = "z value", 
      main = "Box plot of the z values calculated with different pooling method")
+ggplot(data = z_df_long)+
+  geom_density(aes(x = value, color = Var2, alpha = 0.2, fill = Var2))
 
-colnames(power.z) <- colnames(summary(nls(species~c*A^z,ex,start = list(c=1,z=1)))[["coefficients"]])
-power.z[,4] > 0.05
-hist(power.z[,1])
-summary(power.z[,1])
+write.table(power.increase.z,"DOBPowerInZ.txt")
+write.table(power.increase.z,"DOBPowerDeZ.txt")
 
-# merge samples and linear regression
-write.table(power.z,"dob.z.txt")
-write.table(power.c,"dob.c.txt")
-# merge samples and linear regression
-# dob_site <- merge_samples(dob, "Site")
-#d_site <- sample_data(dob_site)
-d1$nitrogenPercent[is.nan(d1$nitrogenPercent)] = NA
-d1$organicCPercent[is.nan(d1$organicCPercent)] = NA
-d1$map_mm[is.nan(d1$map_mm)] = NA
-
-d_site <- aggregate(cbind(d1$soilInCaClpH,d1$nitrogenPercent,d1$organicCPercent,
-                          d1$soilMoisture, d1$map_mm,d1$prec_seasonality,d1$mat_celsius,
-                          d1$temp_seasonality),list(d1$Site), function(x) mean(x,na.rm = T))
-d_site$V2[is.nan(d_site$V2)] = NA
-d_site$V3[is.nan(d_site$V3)] = NA
-d_site$V4[is.nan(d_site$V4)] = NA
-row.names(d_site) <- d_site$Group.1
-d_site <- data.frame(scale(d_site[,-1]))
-colnames(d_site) <- c("soilInCaClpH","nitrogenPercent","organicCPercent",
-                      "soilMoisture", "map_mm",'prec_seasonality',"mat_celsius",
-                      "temp_seasonality")
-# standardization seems to have no effect on significance
-d_site <- d_site[a1,]
-summary(lm(power.z[,1] ~ d_site$soilInCaClpH + d_site$soilMoisture + d_site$mat_celsius +
-             d_site$map_mm + d_site$temp_seasonality))
-
-# data with no missing values
-summary(lm(scale(power.z[,1]) ~ d_site$mat_celsius +
-             d_site$map_mm + d_site$temp_seasonality + d_site$prec_seasonality))
-
-summary(lm(power.z[,1] ~ d_site$mat_celsius +
-             d_site$map_mm + d_site$temp_seasonality + d_site$prec_seasonality))
-
-p1 <- ggtrendline(d_site$soilInCaClpH, power.z[,1],linecolor="red")+
-  geom_point(aes(d_site$soilInCaClpH, power.z[,1]),color="black",pch=21,fill='white')+
-  xlab("soilInCaClpH")+ylab("z")
-
-p2 <- ggtrendline(d_site$soilMoisture, power.z[,1],linecolor="red")+
-  geom_point(aes(d_site$soilMoisture, power.z[,1]),color="black",pch=21,fill='white')+
-  xlab("soilMoisture")+ylab("z")
-
-p3 <- ggtrendline(d_site$mat_celsius, power.z[,1],linecolor="red")+
-  geom_point(aes(d_site$mat_celsius, power.z[,1]),color="black",pch=21,fill='white')+
-  xlab("mat_celsius")+ylab("z")
-
-p4 <- ggtrendline(d_site$map_mm, power.z[,1],linecolor="red")+
-  geom_point(aes(d_site$map_mm, power.z[,1]),color="black",pch=21,fill='white')+
-  xlab("map_mm")+ylab("z")
-
-p5 <- ggtrendline(d_site$temp_seasonality, power.z[,1],linecolor="red")+
-  geom_point(aes(d_site$temp_seasonality, power.z[,1]),color="black",pch=21,fill='white')+
-  xlab("temp_seasonality")+ylab("z") 
-
-p6 <- ggtrendline(d_site$prec_seasonality, power.z[,1],linecolor="red")+
-  geom_point(aes(d_site$prec_seasonality, power.z[,1]),color="black",pch=21,fill='white')+
-  xlab("prec_seasonality")+ylab("z") 
-
-grid.arrange(p1,p2,p3,p4,p5,p6,ncol = 3)
+length(longest_common_subsequence(names(sort(power.increase.z[,1])),names(sort(power.decrease.z[,1])))) # 18 out of all 68
+length(longest_common_subsequence(names(sort(power.increase.z[,1])),names(sort(power.random.z[,1])))) # 23
+length(longest_common_subsequence(names(sort(power.decrease.z[,1])),names(sort(power.random.z[,1])))) # 22
+cor(power.increase.z[,1], power.decrease.z[,1], method = "kendall") # 0.55
+cor(power.increase.z[,1], power.random.z[,1], method = "kendall") # 0.64
+cor(power.decrease.z[,1], power.random.z[,1], method = "kendall") # 0.59

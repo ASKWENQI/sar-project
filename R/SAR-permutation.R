@@ -14,11 +14,13 @@ d <- sample_data(neon) # sample data data frame
 
 a <- unique(d$Site) # get all the sites
 # create matrix to save power
-power.c <- power.z <- matrix(nrow = 45, ncol = 4,
+
+times = 25
+power.c <- power.z <- matrix(nrow = 45, ncol = times,
        dimnames = list(a, c("Estimate", "Std. Error", "t value", "Pr(>|t|)" )))
 
 # computing the relationship between number of species and number of samples
-
+otu_tab <- otu_table(neon)
 
 for (i in 1:length(a)){
   # take out one site
@@ -27,7 +29,7 @@ for (i in 1:length(a)){
   dim1 <- dim(otu_table(neon_sub)) # the number of samples in one site
   cl <- makeCluster(3)
   registerDoParallel(cl)
-  foreach(i = 1:25, .combine = "c") %dopar% {
+  power.z[i,] <- foreach(i = 1:times, .combine = "c") %dopar% {
     species <- vector(length = dim1[1]) # create a vector to save diversity
     for (j in 1:(dim1[1])){ 
       
@@ -45,3 +47,5 @@ for (i in 1:length(a)){
   }
   stopCluster(cl)
 }
+
+write.table(power.z,"permutation.power.z.txt")
