@@ -27,9 +27,9 @@ for (i in 1:length(a)){
   cat('\r',paste(paste0(rep("*", round(i/ 1, 0)), collapse = ''), i, collapse = ''))# informs the processing
   neon_sub <- subset_samples(neon, Site==a[i])
   dim1 <- dim(otu_table(neon_sub)) # the number of samples in one site
-  cl <- makeCluster(3)
+  cl <- makeCluster(2)
   registerDoParallel(cl)
-  power.z[i,] <- foreach(i = 1:times, .combine = "c") %dopar% {
+  power.z[i,] <- foreach(i = 1:times, .combine = "c", .packages = c("phyloseq")) %dopar% {
     species <- vector(length = dim1[1]) # create a vector to save diversity
     for (j in 1:(dim1[1])){ 
       
