@@ -16,8 +16,7 @@ a <- unique(d$Site) # get all the sites
 # create matrix to save power
 
 times = 25
-power.c <- power.z <- matrix(nrow = 45, ncol = times,
-       dimnames = list(a, c("Estimate", "Std. Error", "t value", "Pr(>|t|)" )))
+power.z <- vector("list", length(a))
 
 # computing the relationship between number of species and number of samples
 otu_tab <- otu_table(neon)
@@ -25,11 +24,14 @@ otu_tab <- otu_table(neon)
 for (i in 1:length(a)){
   # take out one site
   cat('\r',paste(paste0(rep("*", round(i/ 1, 0)), collapse = ''), i, collapse = ''))# informs the processing
+  
   neon_sub <- subset_samples(neon, Site==a[i])
   dim1 <- dim(otu_table(neon_sub)) # the number of samples in one site
+  
   cl <- makeCluster(2)
   registerDoParallel(cl)
-  power.z[i,] <- foreach(i = 1:times, .combine = "c", .packages = c("phyloseq")) %dopar% {
+  
+  power.z[[i]] <- foreach(i = 1:times, .combine = "cbind", .packages = c("phyloseq")) %dopar% {
     species <- vector(length = dim1[1]) # create a vector to save diversity
     for (j in 1:(dim1[1])){ 
       
@@ -43,7 +45,8 @@ for (i in 1:length(a)){
     }
     ex <- as.data.frame(cbind("A"=c(1:dim1[1]),species))
     temp <- summary(nls(species~c*A^z,ex,start = list(c=1,z=1)))[["coefficients"]]
-    return(temp[2,1])
+    
+    return(c(temp[2,1], temp[2,4]))
   }
   stopCluster(cl)
 }
