@@ -23,13 +23,6 @@ tax_table(neon_dob) %>%
 ft <- read.csv("../data/FungalTraits_1.2_ver_16Dec_2020.csv", na.strings="")
 ft <- ft[which(!duplicated(ft)),]
 names(ft) <- tolower(names(ft))
-names(ft)
-
-# Is genus a unique identifier in FungalTraits?
-dupes_genus <- ft$genus[which(duplicated(ft$genus))]
-dupes_genus
-ft[which(ft$genus %in% dupes_genus),c("class", "order", "family", "genus", "primary_lifestyle")]
-as.character(dupes_genus) %in% tax_table(neon_dob)[,"genus"]
 
 # Yes! Thus, safe to remove duplicates.
 ft <- ft[-which(duplicated(ft$genus)),]
@@ -57,11 +50,6 @@ ft <- ft %>%
     ectomycorrhiza_exploration_type_template,
     growth_form_template, guild2) %>%
   dplyr::filter(!is.na(primary_lifestyle))
-
-# What are the consequences of subsetting the NEON-DoB dataset, for our
-# ability to conduct trait analysis?
-sum(tax_table(neon_dob)[,"genus"] %in% ft$genus); mean(tax_table(neon_dob)[,"genus"] %in% ft$genus)
-# 5006 (58%) OTUs have genus-level guild annotation.
 
 d <- sample_data(neon) # sample data data frame
 
