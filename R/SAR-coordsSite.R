@@ -12,7 +12,7 @@ neon_dob <- subset_samples(neon_dob, !is.na(lon) & !is.na(lat))
 neon_dob <- subset_taxa(neon_dob, taxa_sums(neon_dob) > 0)
 neon_dob <- subset_samples(neon_dob, sample_sums(neon_dob) > 0)
 neon_dob <- subset_samples(neon_dob, !is.na(Site))
-neon_dob <- subset_samples(neon_dob,collectYear > 2014)
+# neon_dob <- subset_samples(neon_dob,collectYear > 2014)
 d <- sample_data(neon_dob)[,c(6,8,9,17,20:23)]
 # d1 <- d[which(d$Project=="DoB"),c(5,6,8,9,17,20:23)]
 # d1 <- d1[which(d1$horizon=="O"),-1]
@@ -33,7 +33,7 @@ d <- sample_data(neon_dob) # sample data data frame
 site_counts <- table(d$coordsSite)
 
 # Filter out sites with more than 30 samples
-filtered_sites <- names(site_counts)[site_counts > 30]
+filtered_sites <- names(site_counts)[site_counts > 0]
 
 # create matrix to save result
 power.c <- matrix(nrow = length(filtered_sites), ncol = 4)
@@ -42,12 +42,12 @@ aic <- vector(length = 20)
 models <- vector(length = length(filtered_sites))
 ex.list <- list()
 # computing the relationship between number of species and number of samples
-for (i in 1:length(filtered_sites)){
+for (i in 127:length(filtered_sites)){
   # take out one site
   neon_dob_sub <- subset_samples(neon_dob, coordsSite==filtered_sites[i])
   dim1 <- dim(otu_table(neon_dob_sub)) # the number of samples in one site
-  species <- vector(length = 30) # create a vector to save diversity
-  for (j in 1:30){ 
+  species <- vector(length = dim1[1]) # create a vector to save diversity
+  for (j in 1:dim1[1]){ 
     
     # randomly sample j samples in the site 
     flag <- rep(FALSE, dim1[1])
@@ -57,16 +57,16 @@ for (i in 1:length(filtered_sites)){
     # compute number of species
     species[j] <- sum(otu_table(temp)["TRUE"] > 0)
   }
-  ex <- as.data.frame(cbind(species, "A"=c(1:30)))
+  ex <- as.data.frame(cbind(species, "A"=c(1:dim1[1])))
   ex.list[[i]] <- ex
   temp <- summary(nls(species~c*A^z,ex,start = list(c=1,z=1)))[["coefficients"]]
   power.c[i,] <- temp[1,]
   power.z[i,] <- temp[2,]
-  temp <- sar_multi(ex)
-  for (k in 1:20){
-    aic[k] <- temp[[k]][["AIC"]]
-  }
-  models[i] <- names(temp)[which.min(aic)]
+  # temp <- sar_multi(ex)
+  # for (k in 1:20){
+  #   aic[k] <- temp[[k]][["AIC"]]
+  # }
+  # models[i] <- names(temp)[which.min(aic)]
 }
 colnames(power.z) <- colnames(summary(nls(species~c*A^z,ex,start = list(c=1,z=1)))[["coefficients"]])
 colnames(power.c) <- colnames(summary(nls(species~c*A^z,ex,start = list(c=1,z=1)))[["coefficients"]])
@@ -83,7 +83,7 @@ d_site <- sample_data(neon_dob_agg)
 d_site$nitrogenPercent[is.nan(d_site$nitrogenPercent)]<-NA
 d_site <- d_site[row.names(power.z),c(6,8,9,17,20:23)]
 d_site <- data.frame(scale(d_site))# standardization seems to have no effect on significance
-d_site <- d_site[filtered_sites,]
+
 summary(lm(power.z[,1] ~ d_site$soilInCaClpH + d_site$organicCPercent + d_site$mat_celsius +
              d_site$map_mm + d_site$temp_seasonality + d_site$prec_seasonality))
 summary(lm(power.z[,1] ~ d_site$soilInCaClpH + d_site$organicCPercent + d_site$mat_celsius +
@@ -122,3 +122,4 @@ p6 <- ggtrendline(d_site$prec_seasonality, power.z[,1],linecolor="red")+
 
 grid.arrange(p1,p2,p3,p4,p5,p6,ncol = 3)
 
+# save.image("0727.coordsSite.RData")
