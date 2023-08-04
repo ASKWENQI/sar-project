@@ -83,6 +83,7 @@ for (i in 1:8){
   print(sum(is.na(matSite[,i])))
 }
 
+write.csv(matSite, "FilledInSiteEnv.csv")
 # number of NA value
 #[1] "soilInCaClpH"     "nitrogenPercent"  "organicCPercent"  "soilMoisture"    
 #[5] "mat_celsius"      "map_mm"           "temp_seasonality" "prec_seasonality"
