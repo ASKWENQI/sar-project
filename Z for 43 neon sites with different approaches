@@ -1,0 +1,147 @@
+#two random30 approaches and one nested30 approach but the prior two approaches generated very simialr results
+----------#determining the random30 for the neon sites#------------------------
+neon_dob <- readRDS("/Users/luowenqi/Desktop/GEB/phylo_V3.1.RDS")
+neon_dob <- subset_samples(neon_dob, !is.na(lon) & !is.na(lat))
+neon_dob <- subset_taxa(neon_dob, taxa_sums(neon_dob) > 0)
+neon_dob <- subset_samples(neon_dob, sample_sums(neon_dob) > 0)
+
+d=subset_samples(neon_dob,Project!="DoB")#only select the NEONE site
+neon_sam=sample_data(d)
+
+site_neon=data.frame(table(neon_sam$Site))
+site_neon=subset(site_neon,Freq>=30)# focused on sites with more than 30 samples
+neon_otu=otu_table(d)# get the otu table for the neon sites
+neon_otu=data.frame(neon_otu)
+
+#select the sites-----
+---------------------------------------------------------------------------
+
+tm=list()
+for(i in 1:dim(site_neon)[1])# the number of the sites for algpar species
+{
+  cat('\r',paste(paste0(rep("*", round(i/ 1, 0)), collapse = ''), i, collapse = ''))# informs the processing
+  tm[[i]]=data.frame(subset(neon_sam,Site==site_neon[,1][i]))
+  tm[[i]]=neon_otu[which(rownames(neon_otu)%in%rownames(tm[[i]])),]#change the sample data to otu
+}
+
+##########random30 approach####
+tt=list()
+for(k in 1:30)# to repeat the sampling 30 times
+{
+  cat('\r',paste(paste0(rep("*", round(k/ 1, 0)), collapse = ''), k, collapse = ''))# informs the processing
+  
+  result.z <- matrix(nrow = 43, ncol = 1)
+  for(i in 1:dim(site_neon)[1])
+  {
+   
+    
+    d=tm[[i]]#get the otu table for each site
+    sp=vector()
+    for(j in 1:30)
+    {
+      d1=sample_n(d,size=j,replace = FALSE)#based on the otu table, all sites will simialrly select up to 30 cores (one core, two cores, three cores..)
+      
+      z=colSums(d1[1:j,]>0)# the first site has 21 samples
+      
+      sp[j]=as.numeric(table(z>0)[2])# decide the number of species for each interation
+    }
+    ex <- as.data.frame(cbind(sp, "A"=c(1:30)))
+    
+    temp <- summary(nls(sp~c*A^z,ex,start = list(c=1,z=1)))[["coefficients"]]#$coefficients[2,1]#for one site
+    
+    result.z[i,]=temp[2,1]
+    
+  }
+  
+  tt[[k]]=result.z
+  
+}
+
+rand1=matrix(nrow = 43,ncol=8)
+for (k in 1:8)
+  for (k in 1:8)
+{
+  rand1[,k]=tt[[k]]
+}
+
+rand1mean=data.frame(apply(rand1,1,mean))
+
+-----------------------------------------------------------------------------------------
+########## Random30 approach
+
+tt=list()
+for(k in 1:30)# to repeat the sampling 30 times
+{
+  cat('\r',paste(paste0(rep("*", round(k/ 1, 0)), collapse = ''), k, collapse = ''))# informs the processing
+  
+  result.z <- matrix(nrow = 43, ncol = 1)
+  
+  for(i in 1:dim(site_neon)[1])
+  {
+   
+    
+    d=tm[[i]]#get the otu table for each site
+    d1=sample_n(d,size=30,replace = FALSE)
+    sp=vector()
+    for(j in 1:30)
+    {
+      #based on the otu table, all sites will simialrly select up to 30 cores (one core, two cores, three cores..)
+      d2=sample_n(d,size=j,replace = FALSE)# should be d1?
+      
+      z=colSums(d2[1:j,]>0)# the first site has 21 samples
+      
+      sp[j]=as.numeric(table(z>0)[2])# decide the number of species for each interation
+    }
+    ex <- as.data.frame(cbind(sp, "A"=c(1:30)))
+    
+    temp <- summary(nls(sp~c*A^z,ex,start = list(c=1,z=1)))[["coefficients"]]#$coefficients[2,1]#for one site
+    
+    result.z[i,]=temp[2,1]
+    
+  }
+  
+  tt[[k]]=result.z
+  
+}
+
+rand2=matrix(nrow = 43,ncol=15)
+for (k in 1:15)
+  {
+  rand2[,k]=tt[[k]]
+}
+
+rand2mean=data.frame(apply(rand2,1,mean))
+-----------------------------------------------------------------------------------
+############Nested30approach##########
+tt=list()
+for(k in 1:30)# to repeat the sampling 30 times
+{
+  cat('\r',paste(paste0(rep("*", round(k/ 1, 0)), collapse = ''), k, collapse = ''))# 
+  result.z <- matrix(nrow = 43, ncol = 1)
+  for(i in 1:dim(site_neon)[1])
+  {
+   
+    d=tm[[i]]#get the otu table for each site
+    d1=sample_n(d,size=30,replace = FALSE)
+    sp=vector()
+    for(j in 1:30)
+    {
+      #based on the otu table, all sites will simialrly select up to 30 cores (one core, two cores, three cores..)
+      z=colSums(d1[1:j,]>0)# the first site has 21 samples
+      sp[j]=as.numeric(table(z>0)[2])# decide the number of species for each interation
+    }
+    ex <- as.data.frame(cbind(sp, "A"=c(1:30)))
+    temp <- summary(nls(sp~c*A^z,ex,start = list(c=1,z=1)))[["coefficients"]]#$coefficients[2,1]#for one site
+    result.z[i,]=temp[2,1]
+  }
+  tt[[k]]=result.z
+}
+nest=matrix(nrow = 43,ncol=30)
+for (k in 1:30)
+{
+  nest[,k]=tt[[k]]
+}
+nestmean=data.frame(apply(nest,1,mean))
+
+
+
