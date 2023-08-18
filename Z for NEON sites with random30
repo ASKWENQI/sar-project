@@ -41,7 +41,7 @@ result.z <- matrix(nrow = 43, ncol = 1)
   }
 # get the mean of the simulated
 rand1=matrix(nrow = 43,ncol=30)
-for (i in 1:30)
+for (k in 1:30)
 {
-  rand1[,i]=tt[[k]]
+  rand1[,k]=tt[[k]]
 }
