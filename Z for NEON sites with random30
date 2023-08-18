@@ -1,0 +1,47 @@
+#determining the random30 for the neon sites
+neon_dob <- readRDS("/Users/luowenqi/Desktop/GEB/phylo_V3.1.RDS")
+neon_dob <- subset_samples(neon_dob, !is.na(lon) & !is.na(lat))
+neon_dob <- subset_taxa(neon_dob, taxa_sums(neon_dob) > 0)
+neon_dob <- subset_samples(neon_dob, sample_sums(neon_dob) > 0)
+d=subset_samples(neon_dob,Project!="DoB")#only select the NEONE sites
+neon_sam=sample_data(d)
+site_neon=data.frame(table(neon_sam$Site))#the neon sites
+site_neon=subset(site_neon,Freq>=30)# focused on sites >=30 samples
+neon_otu=otu_table(d)# get the otu table for the neon sites
+neon_otu=data.frame(neon_otu)
+---------------------------------------------------------------------------
+# get the OTU table for each neon site
+tm=list()
+for(i in 1:dim(site_neon)[1])
+{
+  cat('\r',paste(paste0(rep("*", round(i/ 1, 0)), collapse = ''), i, collapse = ''))# informs the processing
+  tm[[i]]=data.frame(subset(neon_sam,Site==site_neon[,1][i]))
+  tm[[i]]=neon_otu[which(rownames(neon_otu)%in%rownames(tm[[i]])),]#change the sample data to otu
+}
+  tt=list()
+  for(k in 1:30)# to repeat the sampling 30 times
+  {
+cat('\r',paste(paste0(rep("#", round(k/ 1, 0)), collapse = ''), k, collapse = ''))# informs the processing
+result.z <- matrix(nrow = 43, ncol = 1)
+   for(i in 1:dim(site_neon)[1])
+  {
+    d=tm[[i]]#get the otu table for each site
+    sp=vector()
+    for(j in 1:30)
+    {
+      d1=sample_n(d,size=j,replace = FALSE)
+      z=colSums(d1[1:j,]>0)
+      sp[j]=as.numeric(table(z>0)[2])
+    }
+    ex <- as.data.frame(cbind(sp, "A"=c(1:30)))
+    temp <- summary(nls(sp~c*A^z,ex,start = list(c=1,z=1)))[["coefficients"]]#$coefficients[2,1]#for one site
+    result.z[i,]=temp[2,1]
+    }
+  tt[[k]]=result.z
+  }
+# get the mean of the simulated
+rand1=matrix(nrow = 43,ncol=30)
+for (i in 1:30)
+{
+  rand1[,i]=tt[[k]]
+}
