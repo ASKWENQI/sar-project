@@ -1,0 +1,93 @@
+neon_dob <- readRDS("/Users/luowenqi/Desktop/GEB/phylo_V3.1.RDS")
+neon <- subset_samples(neon_dob, get_variable(neon_dob, "Project")=="NEON")
+rm(neon_dob)
+# neon <- subset_samples(neon, horizon == "O")
+neon <- subset_samples(neon, !is.na(lon) & !is.na(lat))
+neon <- subset_taxa(neon, taxa_sums(neon) > 0)
+neon <- subset_samples(neon, sample_sums(neon) > 0)
+#rm(neon_dob)
+
+# neon dataset
+d <- sample_data(neon) # sample data data frame
+
+a <- unique(d$Site) # get all the sites
+# create matrix to save power
+
+times =30
+power.z <- vector("list", length(a))
+
+# computing the relationship between number of species and number of samples
+otu_tab <- otu_table(neon)
+
+for (i in 1:length(a)){
+  # take out one site
+  cat('\r',paste(paste0(rep("*", round(i/ 1, 0)), collapse = ''), i, collapse = ''))# informs the processing
+  
+  neon_sub <- subset_samples(neon, Site==a[i])
+  dim1 <- dim(otu_table(neon_sub)) # the number of samples in one site
+  if (dim1[1] >= 30){
+    cl <- makeCluster(3)
+    registerDoParallel(cl)
+    
+    power.z[[i]] <- foreach(i = 1:times, .combine = "cbind", .packages = c("phyloseq")) %dopar% {
+      species <- vector(length = 30) # create a vector to save diversity
+      for (j in 1:30){ 
+        
+        # randomly sample j samples in the site 
+        flag <- rep(FALSE, dim1[1])
+        flag[sample(1:30, j)] <- TRUE
+        temp <- merge_samples(neon_sub, flag, function(x) mean(x, na.rm = TRUE)) # the j samples aggregated by mean
+        
+        # compute number of species
+        species[j] <- sum(otu_table(temp)["TRUE"] > 0)
+      }
+      ex <- as.data.frame(cbind("A"=c(1:30),species))
+      temp <- summary(nls(species~c*A^z,ex,start = list(c=1,z=1)))[["coefficients"]]
+      
+      return(c(temp[2,1], temp[2,4]))
+    }
+    stopCluster(cl)
+  }
+  else{
+    power.z[[i]]=matrix(1,nrow=2,ncol = times)###creat a matrix for the sites with less 30 cores to avoid NULL output
+  }
+}
+
+power.z.matrix <- matrix(nrow = length(power.z), ncol = times) 
+pvalue.matrix <- matrix(nrow = length(power.z), ncol = times) 
+for (i in 1:length(power.z)){
+  power.z.matrix[i,] <- power.z[[i]][1,]
+  pvalue.matrix[i,] <- power.z[[i]][2,]
+}
+
+power.z.matrix <- matrix(nrow = 45, ncol = times) 
+for (i in c(1:45))#
+  {
+  power.z.matrix[i,] <- power.z[[i]][1,]
+}
+
+
+row.names(power.z.matrix) <- a
+row.names(pvalue.matrix) <- a
+write.table(power.z.matrix,"neonrandom30simuX.csv")
+power.z.matrix=data.frame(power.z.matrix)
+power.z.matrix[38,]
+power.z.matrix[44,]
+power.z.matrix=power.z.matrix[-38,]
+power.z.matrix[43,]
+power.z.matrix=power.z.matrix[-43,]
+soil_var=read.csv("FilledInSiteEnv.csv")
+head(soil_var)
+names(soil_var)[1]="site"
+head(power.z.matrix)
+power.z.matrix.mean=data.frame(apply(power.z.matrix,1,mean))
+power.z.matrix.mean=cbind(site=rownames(power.z.matrix.mean),power.z.matrix.mean)
+
+names(power.z.matrix.mean)[2]="ran30z"
+
+ran30.env=merge(power.z.matrix.mean,soil_var,by="site")
+head(ran30.env)
+dim(ran30.env)
+cor(ran30.env[,2:10])
+
+
