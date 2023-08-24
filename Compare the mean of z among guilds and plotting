@@ -1,0 +1,150 @@
+algpar.mean.ran30.env=read.csv("algpar.mean.ran30.env.csv",sep=",",header=T)
+amf.mean.ran30.env=read.csv("amf.mean.ran30.env.csv",sep=",",header=T)
+animal.mean.ran30.env=read.csv("animal.mean.ran30.env.csv",sep=",",header=T)
+dunsap.mean.ran30.env=read.csv("dunsap.mean.ran30.env.csv",sep=",",header=T)
+ecm.mean.ran30.env=read.csv("ecm.mean.ran30.env.csv",sep=",",header=T)
+epi.mean.ran30.env=read.csv("epiphyte.mean.ran30.env.csv",sep=",",header=T)
+foliaend.mean.ran30.env=read.csv("foliaend.mean.ran30.env.csv",sep=",",header=T)
+lichen.mean.ran30.env=read.csv("lichen.mean.ran30.env.csv",sep=",",header=T)
+lichpar.mean.ran30.env=read.csv("lichpar.mean.ran30.env.csv",sep=",",header=T)
+litsap.mean.ran30.env=read.csv("litsap.mean.ran30.env.csv",sep=",",header=T)
+nec.mean.ran30.env=read.csv("nec.mean.ran30.env.csv",sep=",",header=T)
+para.mean.ran30.env=read.csv("para.mean.ran30.env.csv",sep=",",header=T)
+pat.mean.ran30.env=read.csv("pat.mean.ran30.env.csv",sep=",",header=T)
+rootend.mean.ran30.env=read.csv("rootend.mean.ran30.env.csv",sep=",",header=T)
+soilsap.mean.ran30.env=read.csv("soilsap.mean.ran30.env.csv",sep=",",header=T)#
+woodsap.mean.ran30.env=read.csv("woodsap.mean.ran30.env.csv",sep=",",header=T)
+
+## when  soil variabls are included
+soil_var=read.csv("FilledInSiteEnv.csv")
+names(soil_var)[1]="Var1"
+com.guild=rbind(algpar.mean.ran30.env, amf.mean.ran30.env,animal.mean.ran30.env,dunsap.mean.ran30.env, ecm.mean.ran30.env,epi.mean.ran30.env,
+                foliaend.mean.ran30.env,lichen.mean.ran30.env,lichpar.mean.ran30.env,litsap.mean.ran30.env,nec.mean.ran30.env, para.mean.ran30.env,
+                pat.mean.ran30.env, rootend.mean.ran30.env, soilsap.mean.ran30.env,woodsap.mean.ran30.env)
+com.guild=com.guild[,c(1,3,4,5,13:16)]
+guild=rep(c("algpa","amf","animal","dunsap","ecm","epi","foliaend","lichen","lichpar","litsap","nec","para","pat","rootend","soilsap","woodsap"),times=c(23,38,41,41,44,43,12,31,18,44,43,40,44,40,44,43))
+
+com.guild=cbind(guild,com.guild)
+
+head(soil_var)
+soil_var=soil_var[,1:5]
+com.guild=merge(com.guild,soil_var,by="Var1")
+head(com.guild)
+
+m=list()
+for(i in 1:16){
+  a=subset(com.guild,guild==dd$unique.guild.[i])#dd is the names of different guilds
+  b=cor(a[,4:12])
+  k=corr.test(a[,c(4:12)])
+  m[[i]]=t(k$r[,1])[,2:9]
+  
+}
+
+mf=m[[1]]
+for(i in 2:16){
+  
+  mf=rbind(mf,m[[i]])
+}
+
+mp=list()
+for(i in 1:16){
+  a=subset(com.guild,guild==dd$unique.guild.[i])
+  b=cor(a[,4:12])
+  kp=corr.test(a[,c(4:12)])
+  mp[[i]]=t(kp$p[,1])[,2:9]
+  
+}
+
+mfp=mp[[1]]
+for(i in 2:16){
+  
+  mfp=rbind(mfp,mp[[i]])
+}
+
+mycol<-colorRampPalette(c( "#0f86a9", "white", "#ed8b10"))(200)#color
+
+mfp[mfp>=0 & mfp < 0.001] <- "***"
+
+mfp[mfp>=0.001 & mfp < 0.01] <- "**"
+
+mfp[mfp>=0.01 & mfp < 0.05] <- "*"
+
+mfp[mfp>=0.05 & mfp <= 1] <- ""
+### plotting the relationship between z and environmenatal variables
+pheatmap(mf,scale = "none",
+         
+         border_color= "gray",
+         
+         number_color= "white",
+         
+         fontsize_number=14,
+         
+         fontsize_row=8,
+         
+         fontsize_col=9,
+         
+         cellwidth=15,
+         
+         cellheight=15,
+         
+         cluster_rows=F,
+         
+         cluster_cols=F,
+         color= mycol,
+         
+         display_numbers= mfp,
+         
+         show_rownames=T)
+
+head(com.guild)
+
+k=aov(zran30~guild,data=com.guild)
+summary(k)
+
+TukeyHSD(k)
+
+boxplot(zran30~guild,data=com.guild)
+
+hist(com_data$z)
+subset(com_data,z>1)[,1:5]
+
+
+
+leveneTest(zran30~guild,data=com.guild)# test the variance homogenity
+oneway.test(zran30~guild,data=com.guild,na.action=na.omit, var.equal=FALSE)
+
+
+tukey(com.guild$zran30, com.guild$guild, method="G")# compare the mean of z among fuilds
+source("http://aoki2.si.gunma-u.ac.jp/R/src/tukey.R", encoding="euc-jp")
+
+https://xg1990.com/blog/archives/92
+
+
+guild_mean=cbind(dd,tukey(com.guild$zran30, com.guild$guild, method="G")$result1)
+guild_mean[order(guild_mean$Mean),]
+
+com.guild$guild=factor(com.guild$guild,levels=c("lichpar",  "algpa" ,   "foliaend", "lichen" ,  "animal",   "dunsap" ,      "para",  "rootend",     "soilsap",  "epi" ,  "pat",     "litsap", "woodsap" ,"amf" ,  "nec" , "ecm" ))
+
+ggboxplot(com.guild,x="guild",y="zran30",fill = "guild")+xlab("Functional guilds")+
+  scale_x_discrete(breaks=c( "lichpar",  "algpa" ,   "foliaend", "lichen" ,  "animal",   "dunsap" ,      "para",  "rootend",     "soilsap",  "epi" ,  "pat",     "litsap", "woodsap" ,"amf" ,  "nec" , "ecm"  ),labels=c("Liche parasite (N=18)",  "Alga parasite (N=23)" ,   "Folia endophyte (N=12)",   "Lichenized (N=31)",   "Animal parasite (N=41)" ,"Dung saprotrophic (N=41)", "Mycoparasite (N=40)" ,  "Root endophyte (N=40)", "Soi saprotroph (N=44)",  "Epiphyte (N=43)" ,  "Plan pathogen (N=44)",   "Litter saprotrophic (N=44)", "Wood saprotrophic (N=43)" , "Arbuscula mycorrhizal (N=38)" ,"Nectar/tap saprotroph (N=43)" ,  "Ectomycorrhizal (N=44)" ))+
+  theme(legend.position = "bottom", text = element_text(size=15), axis.text.x = element_text(angle=82,hjust = 1),axis.title.y = element_text(face= "italic",size=20),axis.title.x = element_text(size=20),axis.ticks.x = element_blank())+
+  scale_fill_discrete(breaks=c( "lichpar",  "algpa" ,   "foliaend", "lichen" ,  "animal",   "dunsap" ,      "para",  "rootend",     "soilsap",  "epi" ,  "pat",     "litsap", "woodsap" ,"amf" ,  "nec" , "ecm"  ),labels=c("Liche parasite (N=18)",  "Alga parasite (N=23)" ,   "Folia endophyte (N=12)",   "Lichenized (N=31)",   "Animal parasite (N=41)" ,"Dung saprotrophic (N=41)", "Mycoparasite (N=40)" ,  "Root endophyte (N=40)", "Soi saprotroph (N=44)",  "Epiphyte (N=43)" ,  "Plan pathogen (N=44)",   "Litter saprotrophic (N=44)", "Wood saprotrophic (N=43)" , "Arbuscula mycorrhizal (N=38)" ,"Nectar/tap saprotroph (N=43)" ,  "Ectomycorrhizal (N=44)" ))+
+  ylab("z")+
+  annotate("text",x=1,y=0.56525,label="f",size=5)+
+  annotate("text",x=2,y=0.6547,label="f",size=5)+
+  annotate("text",x=3,y=0.62,label="ef",size=5)+
+  annotate("text",x=4,y=0.78020,label="e",size=5)+
+  annotate("text",x=5,y=0.76,label="e",size=5)+
+  annotate("text",x=6,y=0.732,label="e",size=5)+
+  annotate("text",x=7,y=0.765,label="e",size=5)+
+  annotate("text",x=8,y=0.78730,label="de",size=5)+
+  annotate("text",x=9,y=0.7865,label="cde",size=5)+
+  annotate("text",x=10,y=0.83478,label="bcd",size=5)+
+  annotate("text",x=11,y=0.8143276,label="bcd",size=5)+
+  annotate("text",x=12,y=0.8373,label="bcd",size=5)+
+  annotate("text",x=13,y=0.863075,label="abc",size=5)+
+  annotate("text",x=14,y=0.87605,label="ab",size=5)+
+  annotate("text",x=15,y=.86972789580,label="ab",size=5)+
+  annotate("text",x=16,y=.86983,label="a",size=5)+
+  geom_hline(yintercept = 0.609,linetype="dashed",color="red")+
+  guides(fill=FALSE)
