@@ -1,14 +1,16 @@
 rm(list=ls())
 library(phyloseq)
 library(doParallel)
+
 neon_dob <- readRDS("../data/phylo_V3.1.RDS")
-neon <- subset_samples(neon_dob, get_variable(neon_dob, "Project")=="DoB")
+neon <- subset_samples(neon_dob, get_variable(neon_dob, "Project")=="NEON")
 rm(neon_dob)
 # neon <- subset_samples(neon, horizon == "O")
+# neon <- subset_samples(neon, horizon == "M")
 neon <- subset_samples(neon, !is.na(lon) & !is.na(lat))
 neon <- subset_taxa(neon, taxa_sums(neon) > 0)
 neon <- subset_samples(neon, sample_sums(neon) > 0)
-#rm(neon_dob)
+neon <- subset_samples(neon, !is.na(horizon))
 
 # neon dataset
 d <- sample_data(neon) # sample data data frame
@@ -22,7 +24,7 @@ power.z <- vector("list", length(a))
 # computing the relationship between number of species and number of samples
 otu_tab <- otu_table(neon)
 
-for (i in 41:length(a)){
+for (i in 1:length(a)){
   # take out one site
   cat('\r',paste(paste0(rep("*", round(i/ 1, 0)), collapse = ''), i, collapse = ''))# informs the processing
   
@@ -38,7 +40,7 @@ for (i in 41:length(a)){
         
         # randomly sample j samples in the site 
         flag <- rep(FALSE, dim1[1])
-        flag[sample(1:30, j)] <- TRUE
+        flag[sample(1:dim1[1], j)] <- TRUE
         temp <- merge_samples(neon_sub, flag, function(x) mean(x, na.rm = TRUE)) # the j samples aggregated by mean
         
         # compute number of species
@@ -49,17 +51,25 @@ for (i in 41:length(a)){
       
       return(c(temp[2,1], temp[2,4]))
     }
-  stopCluster(cl)
+    stopCluster(cl)
   }
 }
 
-power.z.matrix <- matrix(nrow = length(power.z), ncol = times) 
-pvalue.matrix <- matrix(nrow = length(power.z), ncol = times) 
-for (i in 41:length(power.z)){
-  power.z.matrix[i,] <- power.z[[i]][1,]
-  pvalue.matrix[i,] <- power.z[[i]][2,]
+power.z.matrix <- matrix(nrow = length(power.z), ncol = times, dimnames = list(a, NULL)) 
+pvalue.matrix <- matrix(nrow = length(power.z), ncol = times, dimnames = list(a, NULL)) 
+
+for (i in 1:length(power.z)){
+  if (!is.null(power.z[[i]])){
+    power.z.matrix[i,] <- power.z[[i]][1,]
+    pvalue.matrix[i,] <- power.z[[i]][2,]
+  }
 }
-row.names(power.z.matrix) <- a
-row.names(pvalue.matrix) <- a
-write.table(power.z.matrix,"permutation.power.z.dob.O.txt")
-write.table(pvalue.matrix,"pvalue.dob.O.txt")
+
+write.table(power.z.matrix,"D_power.z.NEON.txt")
+write.table(pvalue.matrix,"D_pvalue.NEON.txt")
+
+write.table(power.z.matrix,"D_power.z.NEON.O.txt")
+write.table(pvalue.matrix,"D_pvalue.NEON.O.txt")
+
+write.table(power.z.matrix,"D_power.z.NEON.M.txt")
+write.table(pvalue.matrix,"D_pvalue.NEON.M.txt")

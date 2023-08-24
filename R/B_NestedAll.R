@@ -6,10 +6,12 @@ library(permute)
 neon_dob <- readRDS("../data/phylo_V3.1.RDS")
 neon <- subset_samples(neon_dob, get_variable(neon_dob, "Project")=="NEON")
 rm(neon_dob)
+# neon <- subset_samples(neon, horizon == "O")
+# neon <- subset_samples(neon, horizon == "M")
 neon <- subset_samples(neon, !is.na(lon) & !is.na(lat))
 neon <- subset_taxa(neon, taxa_sums(neon) > 0)
 neon <- subset_samples(neon, sample_sums(neon) > 0)
-# neon <- subset_samples(neon, !is.na(horizon))
+neon <- subset_samples(neon, !is.na(horizon))
 gc()
 # neon dataset
 d <- sample_data(neon) # sample data data frame
@@ -23,13 +25,13 @@ power.z <- vector("list", length(a))
 # computing the relationship between number of species and number of samples
 otu_tab <- otu_table(neon)
 
-for (i in 1:length(a)){
+for (i in 22:length(a)){
   # take out one site
   cat('\r',paste(paste0(rep("*", round(i/ 1, 0)), collapse = ''), i, collapse = ''))# informs the processing
   
   otu_tab <- otu_table(subset_samples(neon, Site==a[i]))
   dim1 <- dim(otu_tab) # the number of samples in one site
-  cl <- makeCluster(4)
+  cl <- makeCluster(3)
   registerDoParallel(cl)
   
   power.z[[i]] <- foreach(k = 1:times, .combine = "cbind", .packages = c("phyloseq", "permute")) %dopar% {
@@ -60,16 +62,30 @@ for (i in 1:length(a)){
   stopCluster(cl)
 }
 
-power.z.matrix <- matrix(nrow = length(power.z), ncol = times) 
-pvalue.matrix <- matrix(nrow = length(power.z), ncol = times) 
-for (i in 45:length(power.z)){
-  power.z.matrix[i,] <- power.z[[i]][1,]
-  pvalue.matrix[i,] <- power.z[[i]][2,]
+power.z.matrix <- matrix(nrow = length(power.z), ncol = times, dimnames = list(a, NULL)) 
+pvalue.matrix <- matrix(nrow = length(power.z), ncol = times, dimnames = list(a, NULL)) 
+
+for (i in 1:length(power.z)){
+  if (!is.null(power.z[[i]])){
+    power.z.matrix[i,] <- power.z[[i]][1,]
+    pvalue.matrix[i,] <- power.z[[i]][2,]
+  }
 }
 
-rownames(power.z.matrix) <- a
-rownames(pvalue.matrix) <- a
+write.table(power.z.matrix,"B_power.z.NEON.txt")
+write.table(pvalue.matrix,"B_pvalue.NEON.txt")
 
-write.table(power.z.matrix,"permutation.power.z.without.replacement.NEON.30.txt")
-write.table(pvalue.matrix,"pvalue.dob.wr.NEON.30.txt")
-boxplot(t(power.z.matrix))
+write.table(power.z.matrix,"B_power.z.NEON.O.txt")
+write.table(pvalue.matrix,"B_pvalue.NEON.O.txt")
+
+write.table(power.z.matrix,"B_power.z.NEON.M.txt")
+write.table(pvalue.matrix,"B_pvalue.NEON.M.txt")
+
+write.table(power.z.matrix,"B_power.z.DoB.txt")
+write.table(pvalue.matrix,"B_pvalue.DoB.txt")
+
+write.table(power.z.matrix,"B_power.z.DoB.O.txt")
+write.table(pvalue.matrix,"B_pvalue.DoB.O.txt")
+
+write.table(power.z.matrix,"B_power.z.DoB.M.txt")
+write.table(pvalue.matrix,"B_pvalue.DoB.M.txt")

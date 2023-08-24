@@ -3,12 +3,14 @@ library(phyloseq)
 library(doParallel)
 neon_dob <- readRDS("../data/phylo_V3.1.RDS")
 neon <- subset_samples(neon_dob, get_variable(neon_dob, "Project")=="DoB")
+neon <- subset_samples(neon_dob, get_variable(neon_dob, "Project")=="NEON")
 rm(neon_dob)
+# neon <- subset_samples(neon, horizon == "M")
 # neon <- subset_samples(neon, horizon == "O")
 neon <- subset_samples(neon, !is.na(lon) & !is.na(lat))
 neon <- subset_taxa(neon, taxa_sums(neon) > 0)
 neon <- subset_samples(neon, sample_sums(neon) > 0)
-#rm(neon_dob)
+neon <- subset_samples(neon, !is.na(horizon))
 
 # neon dataset
 d <- sample_data(neon) # sample data data frame
@@ -28,36 +30,53 @@ for (i in 41:length(a)){
   
   neon_sub <- subset_samples(neon, Site==a[i])
   dim1 <- dim(otu_table(neon_sub)) # the number of samples in one site
-    cl <- makeCluster(3)
-    registerDoParallel(cl)
-    
-    power.z[[i]] <- foreach(i = 1:times, .combine = "cbind", .packages = c("phyloseq")) %dopar% {
-      species <- vector(length = dim1[1]) # create a vector to save diversity
-      for (j in 1:dim1[1]){ 
-        
-        # randomly sample j samples in the site 
-        flag <- rep(FALSE, dim1[1])
-        flag[sample(1:dim1[1], j)] <- TRUE
-        temp <- merge_samples(neon_sub, flag, function(x) mean(x, na.rm = TRUE)) # the j samples aggregated by mean
-        
-        # compute number of species
-        species[j] <- sum(otu_table(temp)["TRUE"] > 0)
-      }
-      ex <- as.data.frame(cbind("A"=c(1:dim1[1]),species))
-      temp <- summary(nls(species~c*A^z,ex,start = list(c=1,z=1)))[["coefficients"]]
+  cl <- makeCluster(3)
+  registerDoParallel(cl)
+  
+  power.z[[i]] <- foreach(i = 1:times, .combine = "cbind", .packages = c("phyloseq")) %dopar% {
+    species <- vector(length = dim1[1]) # create a vector to save diversity
+    for (j in 1:dim1[1]){ 
       
-      return(c(temp[2,1], temp[2,4]))
+      # randomly sample j samples in the site 
+      flag <- rep(FALSE, dim1[1])
+      flag[sample(1:dim1[1], j)] <- TRUE
+      temp <- merge_samples(neon_sub, flag, function(x) mean(x, na.rm = TRUE)) # the j samples aggregated by mean
+      
+      # compute number of species
+      species[j] <- sum(otu_table(temp)["TRUE"] > 0)
     }
+    ex <- as.data.frame(cbind("A"=c(1:dim1[1]),species))
+    temp <- summary(nls(species~c*A^z,ex,start = list(c=1,z=1)))[["coefficients"]]
+    
+    return(c(temp[2,1], temp[2,4]))
+  }
   stopCluster(cl)
 }
 
-power.z.matrix <- matrix(nrow = length(power.z), ncol = times) 
-pvalue.matrix <- matrix(nrow = length(power.z), ncol = times) 
-for (i in 41:length(power.z)){
-  power.z.matrix[i,] <- power.z[[i]][1,]
-  pvalue.matrix[i,] <- power.z[[i]][2,]
+power.z.matrix <- matrix(nrow = length(power.z), ncol = times, dimnames = list(a, NULL)) 
+pvalue.matrix <- matrix(nrow = length(power.z), ncol = times, dimnames = list(a, NULL)) 
+
+for (i in 1:length(power.z)){
+  if (!is.null(power.z[[i]])){
+    power.z.matrix[i,] <- power.z[[i]][1,]
+    pvalue.matrix[i,] <- power.z[[i]][2,]
+  }
 }
-row.names(power.z.matrix) <- a
-row.names(pvalue.matrix) <- a
-write.table(power.z.matrix,"permutation.power.z.dob.O.txt")
-write.table(pvalue.matrix,"pvalue.dob.O.txt")
+
+write.table(power.z.matrix,"A_power.neon.txt")
+write.table(pvalue.matrix,"A_pvalue.neon.txt")
+
+write.table(power.z.matrix,"A_power.neon.O.txt")
+write.table(pvalue.matrix,"A_pvalue.neon.O.txt")
+
+write.table(power.z.matrix,"A_power.neon.M.txt")
+write.table(pvalue.matrix,"A_pvalue.neon.M.txt")
+
+write.table(power.z.matrix,"A_power.DoB.txt")
+write.table(pvalue.matrix,"A_pvalue.DoB.txt")
+
+write.table(power.z.matrix,"A_power.DoB.O.txt")
+write.table(pvalue.matrix,"A_pvalue.DoB.O.txt")
+
+write.table(power.z.matrix,"A_power.DoB.M.txt")
+write.table(pvalue.matrix,"A_pvalue.DoB.M.txt")
