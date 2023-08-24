@@ -24,7 +24,7 @@ power.z <- vector("list", length(a))
 # computing the relationship between number of species and number of samples
 otu_tab <- otu_table(neon)
 
-for (i in 41:length(a)){
+for (i in 1:length(a)){
   # take out one site
   cat('\r',paste(paste0(rep("*", round(i/ 1, 0)), collapse = ''), i, collapse = ''))# informs the processing
   
@@ -57,7 +57,7 @@ power.z.matrix <- matrix(nrow = length(power.z), ncol = times, dimnames = list(a
 pvalue.matrix <- matrix(nrow = length(power.z), ncol = times, dimnames = list(a, NULL)) 
 
 for (i in 1:length(power.z)){
-  if (!is.null(power.z[[i]])){
+  if (!is.null(power.z[[i]])){ # skip null situation
     power.z.matrix[i,] <- power.z[[i]][1,]
     pvalue.matrix[i,] <- power.z[[i]][2,]
   }
