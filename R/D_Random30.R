@@ -12,17 +12,13 @@ neon <- subset_taxa(neon, taxa_sums(neon) > 0)
 neon <- subset_samples(neon, sample_sums(neon) > 0)
 neon <- subset_samples(neon, !is.na(horizon))
 
-# neon dataset
-d <- sample_data(neon) # sample data data frame
 
+d <- sample_data(neon) # sample data data frame
 a <- unique(d$Site) # get all the sites
-# create matrix to save power
+otu_tab <- otu_table(neon)
 
 times = 30
 power.z <- vector("list", length(a))
-
-# computing the relationship between number of species and number of samples
-otu_tab <- otu_table(neon)
 
 for (i in 1:length(a)){
   # take out one site
